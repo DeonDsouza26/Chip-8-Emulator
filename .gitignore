@@ -1,0 +1,11 @@
+# Ignore build folder
+build/
+
+# Ignore everything inside SFML  
+include/SFML/*
+
+# Dont ignore .gitkeep
+!include/SFML/.gitkeep
+
+
+
