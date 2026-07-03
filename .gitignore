@@ -1,11 +1,12 @@
 # Ignore build folder
 build/
 
-# Ignore everything inside SFML  
-include/SFML/*
+# Ignore SFML dependencies 
+include/SFML/
 
-# Dont ignore .gitkeep
+# Except .gitkeep
 !include/SFML/.gitkeep
 
-
+# Ignore commit message file
+commit.txt
 

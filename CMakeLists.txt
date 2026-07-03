@@ -12,7 +12,7 @@ set(SFML_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/SFML/lib/cmake/SFML")
 find_package(SFML 3.1.0 REQUIRED COMPONENTS Graphics Window System)
 
 # Build targets
-add_executable(emulator main.cpp)
+add_executable(emulator main.cpp src/cycle.cpp src/loadRom.cpp  src/window.cpp )
 
 # Link dependencies
 target_link_libraries(emulator PRIVATE 
