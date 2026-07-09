@@ -19,21 +19,27 @@ A simple CHIP-8 emulator written in **C++** using the **SFML (Simple and Fast Mu
 
 ## Screenshots
 
-<img src="screenshots/1.png" alt="Menu" width="400">
+<p align="center">
+  <img src="screenshots/1.png" width="48%" alt="Menu"/>
+  <img src="screenshots/2.png" width="48%" alt="Octojam 10 title"/>
+</p>
 
-<img src="screenshots/2.png" alt="Octojam 10 title" width="400">
-
-<img src="screenshots/3.png" alt="Octojam 7 title" width="400">
-
-<img src="screenshots/4.png" alt="Octojam 10 title" width="400">
-
+<p align="center">
+  <img src="screenshots/3.png" width="48%" alt="Octojam 7 title"/>
+  <img src="screenshots/4.png" width="48%" alt="Octojam 10 title"/>
+</p>
 ## Requirements
 
 - **Compiler:** A C++ compiler supporting **C++17** or higher (e.g., GCC 9+, Clang 10+, or MSVC 2019+).
 - **Build System:** [CMake](https://cmake.org/) (version 3.10 or higher recommended).
 - **Graphics Library:** [SFML 3.1.0](https://github.com/sfml/sfml) or higher installed on your system.
-- **Dear ImGui:** [Dear ImGui 1.91.1](https://github.com/ocornut/imgui), included in this repository.
-- **ImGui SFML:** [ImGui SFML 3.0](https://github.com/SFML/imgui-sfml), also included in this repository.
+
+### Bundled Dependencies
+
+The following libraries are already included in this repository and do not require separate installation:
+
+- [**Dear ImGui:** 1.91.1](https://github.com/ocornut/imgui)
+- [**ImGui SFML:** 3.0](https://github.com/SFML/imgui-sfml)
 
 ## Building and Running
 
@@ -98,7 +104,7 @@ Chip-8-Emulator/
 
 ## Controls
 
-![Controls](screenshot/control.png)
+![Controls](screenshots/control.png)
 
 ## Supported Instructions
 

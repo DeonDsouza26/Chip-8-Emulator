@@ -1,7 +1,7 @@
 # Ignore build folder
 build/
 
-# Ignore SFML dependencies 
+# Ignore dependencies 
 include/SFML/
 
 # Except .gitkeep
