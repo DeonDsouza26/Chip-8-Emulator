@@ -1,7 +1,12 @@
+#include <iostream>
+
+// Include External Libraies
 #include <SFML/Graphics.hpp>
+#include "imgui.h"
+#include "imgui-SFML.h"
 
 // Include Chip8 class from path include/header/chip8.hpp
-#include "../header/chip8.hpp"
+#include "chip8.hpp"
 
 // Initializes the application window, renders the current frame pixels, and displays the updated frame.
 void Chip8::loadWindow()
@@ -9,157 +14,146 @@ void Chip8::loadWindow()
   static constexpr int width = 64;
   static constexpr int height = 32;
   static constexpr int scale = 16;
+  const int menuHeight = 20;
+  bool romLoaded = false;
+  sf::Clock deltaClock;
+  bool isEmuPaused = false;
 
-  sf::RenderWindow window(sf::VideoMode({width * scale, height * scale}), "Chip-8-Emulator");
+  sf::RenderWindow window(sf::VideoMode({width * scale, (height * scale) + menuHeight}), "Chip-8-Emulator");
+  ImGui::SFML::Init(window);
+  window.requestFocus();
+
+  window.setFramerateLimit(60);
 
   sf::RectangleShape pixel(sf::Vector2f(scale, scale));
-
   while (window.isOpen())
   {
-    window.setFramerateLimit(60);
-
     handleInput(window);
 
-    for (int i = 0; i < 10; i++)
-    {
-      cycle(window);
-    }
+    ImGui::SFML::Update(window, deltaClock.restart());
 
-    if (delayTimer > 0)
-      delayTimer--;
+    listenForHotkeys(window, romLoaded, isEmuPaused);
 
-    if (soundTimer > 0)
-      soundTimer--;
+    updateMenuBar(window, romLoaded, isEmuPaused);
 
-    if (drawFlag)
-    {
-      window.clear(sf::Color::Black);
+    window.clear(sf::Color::Black);
 
-      for (int y = 0; y < height; ++y)
-      {
-        for (int x = 0; x < width; ++x)
-        {
-          if (display[y * width + x])
-          {
-            pixel.setPosition(
-                sf::Vector2f(x * scale, y * scale));
+    displayHome(window, romLoaded);
 
-            window.draw(pixel);
-          }
-        }
-      }
-      window.display();
-      drawFlag = false;
-    }
+    updateEmulator(isEmuPaused, romLoaded);
+
+    renderEmulatorDisplay(window, pixel, menuHeight, scale, width, height);
+
+    ImGui::SFML::Render(window);
+    window.display();
+    drawFlag = false;
+  }
+  ImGui::SFML::Shutdown();
+}
+
+/*
+============================================= HELPER FUNCTIONS =============================================
+*/
+
+void Chip8::listenForHotkeys(sf::RenderWindow &window, bool &romLoaded, bool &isEmuPaused)
+{
+  if (ImGui::IsKeyPressed((ImGuiKey)ImGuiKey_L, false))
+  {
+    std::cout << "L key pressed\nSelecting ROM file\n";
+    romLoaded = loadRom();
+  }
+  if (ImGui::IsKeyPressed((ImGuiKey)ImGuiKey_F1, false))
+  {
+    isEmuPaused = true;
+    std::cout << "F1 key pressed\nGame resumed\n";
+  }
+  if (ImGui::IsKeyPressed((ImGuiKey)ImGuiKey_F2, false))
+  {
+    isEmuPaused = false;
+    std::cout << "F2 key pressed\nGame paused\n";
+  }
+  if (ImGui::IsKeyPressed((ImGuiKey)ImGuiKey_Escape, false))
+  {
+    window.close();
   }
 }
 
-// Handles user input for ROMs, mapping host keystrokes to the Chip-8's 16-key array
-void Chip8::handleInput(sf::RenderWindow &window)
+void Chip8::updateMenuBar(sf::RenderWindow &window, bool &romLoaded, bool &isEmuPaused)
 {
-  while (const std::optional event = window.pollEvent())
+  if (ImGui::BeginMainMenuBar())
   {
-    if (event->is<sf::Event::Closed>())
+    if (ImGui::MenuItem("Load Rom (L)"))
+    {
+      romLoaded = loadRom();
+    }
+    if (ImGui::MenuItem("Play (F2)"))
+    {
+      isEmuPaused = false;
+      std::cout << "Game resumed\n";
+    }
+    if (ImGui::MenuItem("Pause (F1)"))
+    {
+      isEmuPaused = true;
+      std::cout << "Game paused\n";
+    }
+    if (ImGui::MenuItem("Exit (ESC)"))
     {
       window.close();
     }
-
-    if (const auto *keyPressed = event->getIf<sf::Event::KeyPressed>())
-    {
-      if (keyPressed->code == sf::Keyboard::Key::Escape)
-      {
-        window.close();
-      }
-      int key = mapSFMLKeyToChip8(keyPressed->code);
-
-      if (key != -1)
-      {
-        keypad[key] = 1;
-      }
-    }
-
-    if (const auto *keyReleased = event->getIf<sf::Event::KeyReleased>())
-    {
-      int key = mapSFMLKeyToChip8(keyReleased->code);
-
-      if (key != -1)
-      {
-        keypad[key] = 0;
-      }
-    }
+    ImGui::EndMainMenuBar();
   }
 }
 
-// Translates a host system keystroke into a Chip-8 key value (0x0 - 0xF).
-int Chip8::mapSFMLKeyToChip8(sf::Keyboard::Key key)
+void Chip8::displayHome(sf::RenderWindow &window, bool &romLoaded)
 {
-  switch (key)
+  if (!romLoaded)
   {
-  case sf::Keyboard::Key::Num1:
-    return 0x1;
-    break;
+    drawCenteredString(window, "EMULATOR", 170.f, 5.f);
+    drawCenteredString(window, "CHIP-8", 80.f, 10.f);
 
-  case sf::Keyboard::Key::Num2:
-    return 0x2;
-    break;
+    float keyX = 50.f;
+    float textX = 200.f;
 
-  case sf::Keyboard::Key::Num3:
-    return 0x3;
-    break;
+    drawString(window, "L", {keyX, 280.f}, 4.f);
+    drawString(window, "LOAD ROM", {textX, 280.f}, 4.f);
 
-  case sf::Keyboard::Key::Num4:
-    return 0xC;
-    break;
+    drawString(window, "F2", {keyX, 315.f}, 4.f);
+    drawString(window, "PLAY", {textX, 315.f}, 4.f);
 
-  case sf::Keyboard::Key::Q:
-    return 0x4;
-    break;
+    drawString(window, "F1", {keyX, 350.f}, 4.f);
+    drawString(window, "PAUSE", {textX, 350.f}, 4.f);
 
-  case sf::Keyboard::Key::W:
-    return 0x5;
-    break;
+    drawString(window, "ESC", {keyX, 385.f}, 4.f);
+    drawString(window, "EXIT", {textX, 385.f}, 4.f);
+  }
+}
 
-  case sf::Keyboard::Key::E:
-    return 0x6;
-    break;
+void Chip8::updateEmulator(bool &isEmuPaused, bool &romLoaded)
+{
+  if (!isEmuPaused && romLoaded)
+  {
+    for (int i = 0; i < 10; i++)
+    {
+      cycle();
+    }
+    if (delayTimer > 0)
+      delayTimer--;
+    if (soundTimer > 0)
+      soundTimer--;
+  }
+}
 
-  case sf::Keyboard::Key::R:
-    return 0xD;
-    break;
-
-  case sf::Keyboard::Key::A:
-    return 0x7;
-    break;
-
-  case sf::Keyboard::Key::S:
-    return 0x8;
-    break;
-
-  case sf::Keyboard::Key::D:
-    return 0x9;
-    break;
-
-  case sf::Keyboard::Key::F:
-    return 0xE;
-    break;
-
-  case sf::Keyboard::Key::Z:
-    return 0xA;
-    break;
-
-  case sf::Keyboard::Key::X:
-    return 0x0;
-    break;
-
-  case sf::Keyboard::Key::C:
-    return 0xB;
-    break;
-
-  case sf::Keyboard::Key::V:
-    return 0xF;
-    break;
-
-  default:
-    return -1;
+void Chip8::renderEmulatorDisplay(sf::RenderWindow &window, sf::RectangleShape &pixel, int menuHeight, int scale, int width, int height)
+{
+  for (int y = 0; y < height; ++y)
+  {
+    for (int x = 0; x < width; ++x)
+    {
+      if (display[y * width + x])
+      {
+        pixel.setPosition(sf::Vector2f(x * scale, (y * scale) + menuHeight));
+        window.draw(pixel);
+      }
+    }
   }
 }

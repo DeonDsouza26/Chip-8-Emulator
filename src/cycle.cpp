@@ -1,15 +1,13 @@
 #include <random>
-#include <iostream>
-#include <SFML/Graphics.hpp>
 
-#include "../header/chip8.hpp"
+// Include Chip8 class from path include/header/chip8.hpp
+#include "chip8.hpp"
 
 // Executes a single Chip-8 CPU cycle: fetches, decodes, and executes the next opcode.
-void Chip8::cycle(sf::RenderWindow &window)
+void Chip8::cycle()
 {
-  // Combining 2 8-bits into 1 single 16-bit
+  // Combining 2 8-bits into 1 single 16-bit, because CHIP-8 opcodes are 16-bit long
   uint16_t opcode = (memory[programCounter] << 8) | memory[programCounter + 1];
-  std::cout << "PC: 0x" << std::hex << (int)programCounter << " | Opcode: 0x" << opcode << "\n";
 
   programCounter += 2;
 
@@ -21,10 +19,12 @@ void Chip8::cycle(sf::RenderWindow &window)
   uint8_t nn = (opcode & 0x0FF);
   uint16_t nnn = (opcode & 0x0FFF);
 
+  // Execute
   switch (type)
   {
   case 0x0:
   {
+    // Clear the Display
     if (nn == 0xE0)
     {
       for (uint16_t i = 0; i < 64 * 32; ++i)
@@ -45,7 +45,6 @@ void Chip8::cycle(sf::RenderWindow &window)
     programCounter = nnn;
     break;
   }
-
   case 0x2:
   {
     stack[stackPointer] = programCounter;
@@ -105,24 +104,27 @@ void Chip8::cycle(sf::RenderWindow &window)
 
     case 0x01:
     {
+      // Bitwise OR: Sets bit to 1 if it's 1 in either register.
       registers[x] = registers[x] | registers[y];
       break;
     }
-
     case 0x02:
     {
+      // Bitwise AND: Sets bit to 1 only if it's 1 in both registers
       registers[x] = registers[x] & registers[y];
       break;
     }
 
     case 0x03:
     {
+      // Bitwise XOR: Sets bit to 1 if bits are different; 0 if they are identical
       registers[x] = registers[x] ^ registers[y];
       break;
     }
 
     case 0x04:
     {
+      // ADD with carry: Set VF (registers[15]) to 1 if result overflows (> 255)
       uint16_t temp = registers[x] + registers[y];
       temp > 0xFF ? registers[15] = 1 : registers[15] = 0;
       registers[x] = temp;
@@ -131,6 +133,7 @@ void Chip8::cycle(sf::RenderWindow &window)
 
     case 0x05:
     {
+      // SUB (X - Y): Set VF to 1 if there is NO borrow (X > Y)
       registers[x] > registers[y] ? registers[15] = 1 : registers[15] = 0;
       registers[x] = registers[x] - registers[y];
       break;
@@ -138,13 +141,15 @@ void Chip8::cycle(sf::RenderWindow &window)
 
     case 0x06:
     {
-      (registers[x] & 1) == 0 ? registers[15] = 0 : registers[15] = 1; // or registers[15] = registers[x] & 1
-      registers[x] >> 2;                                               // or registers[x] /= 2
+      // Shift Right: Store the least significant bit in VF, then divide X by 2
+      (registers[x] & 1) == 0 ? registers[15] = 0 : registers[15] = 1;
+      registers[x] >>= 1;
       break;
     }
 
     case 0x07:
     {
+      // SUBN (Y - X): Set VF to 1 if there is NO borrow (Y > X)
       registers[y] > registers[x] ? registers[15] = 1 : registers[15] = 0;
       registers[x] = registers[y] - registers[x];
       break;
@@ -152,8 +157,9 @@ void Chip8::cycle(sf::RenderWindow &window)
 
     case 0x0E:
     {
-      ((registers[x] >> 7) & 1) == 1 ? registers[15] = 1 : registers[15] = 0; // or registers[15] = (registers[x] >> 7) & 1
-      registers[x] << 1;                                                      // or registers[x] *= 2
+      // Shift Left: Store the most significant bit in VF, then multiply X by 2
+      ((registers[x] >> 7) & 1) == 1 ? registers[15] = 1 : registers[15] = 0;
+      registers[x] <<= 1;
       break;
     }
     }
@@ -180,6 +186,7 @@ void Chip8::cycle(sf::RenderWindow &window)
 
   case 0x0C:
   {
+    // CXNN: Generate a random number (0-255) and mask it with the NN byte
     static std::random_device rd;
     static std::mt19937 gen(rd());
     static std::uniform_int_distribution<uint16_t> ran(0, 255);
@@ -191,39 +198,44 @@ void Chip8::cycle(sf::RenderWindow &window)
 
   case 0x0D:
   {
-    uint8_t startX = registers[x] % 64;
-    uint8_t startY = registers[y] % 32;
+    // DXYN: Draw an 8-pixel wide sprite at (X, Y) coordinates for N rows
+    uint8_t startX = registers[x] % 64; // Wrap start coordinate to screen width
+    uint8_t startY = registers[y] % 32; // Wrap start coordinate to screen height
 
-    registers[15] = 0;
+    registers[15] = 0; // Clear collision flag (VF = 0)
 
     for (uint16_t i = 0; i < n; ++i)
     {
+      // Stop drawing if sprite goes off the bottom of the screen
       if (startY + i >= 32)
         break;
 
-      uint8_t spriteByte = memory[indexRegister + i];
+      uint8_t spriteByte = memory[indexRegister + i]; // Fetch 1 byte (row) of sprite data
 
       for (uint8_t j = 0; j < 8; ++j)
       {
+        // Skip current pixel if it goes off the right of the screen
         if (startX + j >= 64)
           continue;
 
+        // Isolate the specific bit (pixel) from the current sprite byte
         uint8_t bit = (spriteByte >> (7 - j)) & 1;
 
         if (bit == 1)
         {
-          uint16_t index = (startX + j) + ((startY + i) * 64);
+          uint16_t index = (startX + j) + ((startY + i) * 64); // 1D array index mapping
 
+          // If screen pixel is already on, a collision occurs (XOR will turn it off)
           if (display[index] == 1)
           {
-            registers[15] = 1;
+            registers[15] = 1; // Set collision flag (VF = 1)
           }
-          display[index] ^= 1;
+          display[index] ^= 1; // XOR the sprite pixel onto the display
         }
       }
     }
 
-    drawFlag = true;
+    drawFlag = true; // Trigger screen refresh loop
     break;
   }
 
@@ -231,11 +243,13 @@ void Chip8::cycle(sf::RenderWindow &window)
   {
     if (nn == 0x9E)
     {
+      // EX9E: Skip the next instruction if the key stored in VX is currently pressed
       if (keypad[registers[x]] == 1)
         programCounter += 2;
     }
     else if (nn == 0xA1)
     {
+      // EXA1: Skip the next instruction if the key stored in VX is NOT pressed
       if (keypad[registers[x]] == 0)
         programCounter += 2;
     }
